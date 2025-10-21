@@ -42,8 +42,11 @@ def extract(url_page):
     # On récupère le nom de l'image, les données en bytes et on les enregistre dans un format .jpg écrit en bytes
     reponse = requests.get(url_img)
     img_data = reponse.content
+    # On modifie le nom de l'image pour être bien référencé et pouvoir fonctionner avec les caractères spéciaux
     nom_image = balise_img["alt"]
-    with open(f"{nom_image}.jpg", "wb") as fichier:
+    nom_image = nom_image.replace(" ", "")
+    nom_image = nom_image.replace(":", "") + ".jpg" # /!\ A voir si c'est pas trop long pour certains.
+    with open(nom_image, "wb") as fichier:
         fichier.write(img_data)
     
     ## On organise tout ça dans un dico en prévision du chargement et en respectant les exigences
@@ -65,33 +68,40 @@ def extract(url_page):
 
 ## On crée la fonction pour extraire tous les liens des produits d'une page de catégorie
 def extract_category(url_category):
-    # On scrape la page de catégorie
-    reponse = requests.get(url_category)
-    page = reponse.content
-    soup = BeautifulSoup(page, "html.parser")
-    # On crée une liste pour incorporer tous les liens, on y ajoute tous les liens parser grâce à une boucle
+    # On crée une liste pour incorporer tous les liens
     liste_url = []
-    h3 = soup.find_all("h3")
-    for element in h3:
-        lien_brut = element.find_all("a")
-        for element in lien_brut:
-            href = element["href"]
-            href = href.strip("../../")
-            page_url = f"https://books.toscrape.com/{href}"
-            liste_url.append(page_url)
+    # On va créer une boucle afin de pouvoir extraire les liens de plusieurs pages s'il y en a
+    while True:
+        reponse = requests.get(url_category)
+        page = reponse.content
+        soup = BeautifulSoup(page, "html.parser")
+        # On ajoute dans la liste tous les liens de la page grâce à une boucle
+        h3 = soup.find_all("h3")
+        for element in h3:
+            lien_brut = element.find_all("a")
+            for element in lien_brut:
+                url_relative = element["href"]
+                page_url = urljoin("https://books.toscrape.com/catalogue/.../.../.../", url_relative) # /!\ Pas top mais pas trouvé mieux
+                liste_url.append(page_url)
+        # On vérifie s'il existe un lien vers une page suivante
+        pg_next_verif = len(soup.select("li.next"))
+        if pg_next_verif > 0:
+            # Si c'est le cas on récupère le lien de la page suivant dont on récupérera les données via la boucle...
+            pg_next_brut = soup.select("li.next")[-1]
+            pg_next = pg_next_brut.find_all("a")[-1] # /!\ pourquoi chercher href avant fonctionne pas variable["x"] est traité comme une liste ? indexation sur une balise ?
+            pg_next = pg_next["href"]
+            pg_next_url = urljoin(url_category, pg_next)
+            url_category = pg_next_url
+        # ... jusqu'à qu'il n'y ai plus de page
+        else:
+            break
     return liste_url
 
 
+url_category = "https://books.toscrape.com/catalogue/category/books/religion_12/index.html"
 
-## Pour vérifier les instructuctions :
-# Exemple de lien :
-url_page = "https://books.toscrape.com/catalogue/the-mysterious-affair-at-styles-hercule-poirot-1_452/index.html"
-url_category = "https://books.toscrape.com/catalogue/category/books/poetry_23/index.html"
-
-# Pour vérifier extraction page et image:
-print(extract(url_page))
-
-# Pour vérifier l'extraction des liens de la page categorie:
-print(extract_category(url_category))
-# Pour vérifier que le nombre de lien correspond à celui annoncé par catégorie:
-print(len(extract_category(url_category)))
+extract_category(url_category)
+for elements in extract_category(url_category):
+    url_page = elements
+    print(extract(url_page))
+    
