@@ -7,6 +7,7 @@ from bs4 import BeautifulSoup
 import csv
 from urllib.parse import urljoin
 import re
+import os
 
 
 ## On crée une fonction pour scraper la page d'un produit avec request et les parser avec BS
@@ -95,10 +96,20 @@ def save_image(url_page):
     nom_img_brut = balise_img["alt"]
     # On modifie le nom de l'image pour être bien référencé et pouvoir fonctionner avec les caractères spéciaux
     nom_img = re.sub(r"(\W)", "", nom_img_brut)
-    # On enregistre les données dans un format .jpg écrit en bytes, avec le nom d'image modifié
-    with open(f"data/images/{nom_img}.jpg", "wb") as fichier:
-        fichier.write(img_data)
-    
+    # On vérifie que le nom d'image n'existe pas déjà pour éviter l'écrasement du fait d'éventuel doublon
+    test_doublon = f"data/images/{nom_img}.jpg"
+    if os.path.exists(test_doublon):
+        # Si c'est le cas on enregistre l'image sous un nom légèrement modifié
+        with open(f"data/images/{nom_img}(2).jpg", "wb") as fichier:
+            fichier.write(img_data)
+    else:
+        # Si ok on enregistre les données dans un format .jpg écrit en bytes, avec le nom de base
+        with open(f"data/images/{nom_img}.jpg", "wb") as fichier:
+            fichier.write(img_data)
+
+
+            
+
 
 ## On ajoute une fonction permettant d'initialiser un fichier CSV par catégorie
 def init_save(url_category):
@@ -139,8 +150,8 @@ def save(info):
         writer = csv.DictWriter(fichierCSV, fieldnames=fieldnames)
         writer.writerow(info)
 
-url_category = "https://books.toscrape.com/catalogue/category/books/autobiography_27/index.html"
-nom_category = "autobiography"
+url_category = "https://books.toscrape.com/catalogue/category/books/fantasy_19/index.html"
+nom_category = "fantasy"
 
 init_save(url_category)
 for url_page in extract_category(url_category):
