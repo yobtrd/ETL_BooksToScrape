@@ -35,7 +35,8 @@ def extract(url_page):
     note = note[1]
     # Le lien de l'image complet
     balise_img = soup.find_all("img")[0]
-    url_img = save_image(balise_img)
+    url_img_relative = balise_img["src"]
+    url_img = urljoin(url_page, url_img_relative)
     ## On enregistre les info dans un dico en prévision du chargement et en respectant les exigences
     info = {
         "product_page_url": url_page,
@@ -52,7 +53,7 @@ def extract(url_page):
     return info
  
 
-## On crée la fonction pour extraire tous les liens des produits d'une page de catégorie
+## On ajoute la fonction pour extraire tous les liens des produits d'une page de catégorie
 def extract_category(url_category):
     # On crée une liste pour incorporer tous les liens
     liste_url = []
@@ -67,11 +68,11 @@ def extract_category(url_category):
             lien_brut = element.find_all("a")
             for element in lien_brut:
                 url_relative = element["href"]
-                page_url = urljoin("https://books.toscrape.com/catalogue/.../.../.../", url_relative) # /!\ Pas top mais pas trouvé mieux
+                page_url = urljoin(url_category, url_relative)
                 liste_url.append(page_url)
         # On vérifie s'il existe un lien vers une page suivante
         pg_next_brut = soup.select("li.next")
-        if len(pg_next_brut) > 0: # => reesayer avec True
+        if pg_next_brut: 
             # Si c'est le cas on récupère le lien de la page suivant dont on récupérera les données via la boucle...
             pg_next = pg_next_brut[-1].find("a")["href"] 
             url_category = urljoin(url_category, pg_next)            
@@ -81,11 +82,27 @@ def extract_category(url_category):
     return liste_url
 
 
-## On crée la fonction permettant de charger les données dans un fichier CSB (newlines permet de pas créer une ligne vierge via un row)
-def load(info):
-    # On change le nom du CSV par la catégorie concernée en prévison de la dernière étape
-    nomCSV = extract(url_page)["category"]
-    with open(f"{nomCSV}.csv", "w", newline="") as fichierCSV:
+## On ajoute la fonction permettant de télécharger les images
+def save_image(url_page):
+    # On récupère l'url de l'image pour extraire les données en bytes
+    url_img = extract(url_page)["image_url"]
+    reponse_url = requests.get(url_img)
+    img_data = reponse_url.content
+    # On récupère le nom de l'image
+    reponse_nom = requests.get(url_page).content
+    soup = BeautifulSoup(reponse_nom, "html.parser")
+    balise_img = soup.find_all("img")[0]
+    nom_img_brut = balise_img["alt"]
+    # On modifie le nom de l'image pour être bien référencé et pouvoir fonctionner avec les caractères spéciaux
+    nom_img = re.sub(r"(\W)", "", nom_img_brut)
+    # On enregistre les données dans un format .jpg écrit en bytes, avec le nom d'image modifié
+    with open(f"data/images/{nom_img}.jpg", "wb") as fichier:
+        fichier.write(img_data)
+    
+
+## On ajoute une fonction permettant d'initialiser un fichier CSV par catégorie
+def init_save(url_category):
+    with open(f"data/cst/{nom_category}.csv", "w", newline="") as fichierCSV:
         # On remet les catégorie du dico qu'on réutilisera grâce à dictwriter
         fieldnames = [
                     "product_page_url", 
@@ -101,37 +118,32 @@ def load(info):
                     ]
         writer = csv.DictWriter(fichierCSV, fieldnames=fieldnames)
         writer.writeheader()
-        for element in info:
-            writer.writerow(element)
+  
+              
+## On ajoute la fonction permettant d'ajouter chaque nouveau dico dans le fichier CSV
+def save(info):
+    nom_csv = info["category"]
+    with open(f"data/cst/{nom_csv}.csv", "a", newline="") as fichierCSV:
+        fieldnames = [
+                    "product_page_url", 
+                    "universal_ product_code (upc)", 
+                    "title",
+                    "price_including_tax", 
+                    "price_excluding_tax",
+                    "number_available",
+                    "product_description", 
+                    "category", 
+                    "review_rating", 
+                    "image_url",
+                    ]
+        writer = csv.DictWriter(fichierCSV, fieldnames=fieldnames)
+        writer.writerow(info)
 
+url_category = "https://books.toscrape.com/catalogue/category/books/autobiography_27/index.html"
+nom_category = "autobiography"
 
-def save_image(balise_img):
-    url_img_relative = balise_img["src"]
-    url_img = urljoin("https://books.toscrape.com/", url_img_relative)
-   
-    ## On incorpore le script permettant de télécharger l'image
-    # On récupère le nom de l'image, les données en bytes et on les enregistre dans un format .jpg écrit en bytes
-    reponse = requests.get(url_img)
-    img_data = reponse.content
-    # On modifie le nom de l'image pour être bien référencé et pouvoir fonctionner avec les caractères spéciaux
-    nom_img_brut = balise_img["alt"]
-    nom_img_brut = re.findall("[A-Za-z0-9]+", nom_img_brut)
-    nom_img = ""
-    for element in nom_img_brut:
-        nom_img += str(element)
-    # On enregistre les données dans un format .jpg écrit en bytes, avec le nom d'image modifié
-    with open(f"{nom_img}.jpg", "wb") as fichier:
-        fichier.write(img_data)
-    return url_img
-
-
-url_category = "https://books.toscrape.com/catalogue/category/books/fantasy_19/index.html"
-
-## On doit créer une liste qui contiendra tous les dico de chaque produit de catégorie pour pouvoire être extraite
-listToLoad = []
-# on extrait chaque produit des catégorie en l'ajoutant à la liste /!\ trop long ?
+init_save(url_category)
 for url_page in extract_category(url_category):
-    listToLoad.append(extract(url_page))
-# On exporte la liste en csv.
-info = listToLoad
-load(info)
+    info = extract(url_page)
+    save(info)
+    save_image(url_page)
