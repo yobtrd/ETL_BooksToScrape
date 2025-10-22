@@ -44,7 +44,7 @@ def extract_category(url_category):
             break
     return liste_url
 
-# Fonction pour extraire les données d'un produits et les enregistrer dans un dictionnaire
+# Fonction pour extraire les données d'un produit et les enregistrer dans un dictionnaire
 def extract_page(url_page):
     reponse = requests.get(url_page)
     page = reponse.content
@@ -90,9 +90,9 @@ def init_save(url_category):
     reponse = requests.get(url_category).content
     soup = BeautifulSoup(reponse, "html.parser")
     nom_category = soup.find("h1").string
-    # Création du dossier où seront stocké les fichiers CSV
+    # Création du dossier où seront stockés les fichiers CSV
     os.makedirs("data/csv/", exist_ok=True)
-    # Création du fichier avec les champs du dictionnaire des infos
+    # Création du fichier CSV avec les champs du dictionnaire info
     with open(f"data/csv/{nom_category}.csv", "w", newline="", encoding='UTF-8') as fichierCSV:
         fieldnames = [
                     "product_page_url", 
@@ -109,7 +109,7 @@ def init_save(url_category):
         writer = csv.DictWriter(fichierCSV, fieldnames=fieldnames)
         writer.writeheader()
                 
-# Fonction pour ajouter chaque données produits dans le fichier CSV correspondant
+# Fonction pour ajouter chaque données du produit dans le fichier CSV correspondant
 def save(info):
     nom_csv = info["category"]
     with open(f"data/csv/{nom_csv}.csv", "a", newline="", encoding='UTF-8') as fichierCSV:
@@ -144,7 +144,7 @@ def save_image(url_page):
     # Création du dossier de l'image, où chacune seront stockées suivant leur catégorie
     cat = extract_page(url_page)["category"]
     os.makedirs(f"data/images/{cat}", exist_ok=True)
-    # Vérification de l'existance de l'image, pour éviter l'écrasement du fait d'éventuel doublon
+    # Vérification de l'existence de l'image, pour éviter l'écrasement du fait d'éventuel doublon
     # /!\ si le script est lancé une seconde fois sans suppression du dossier /images
     test_doublon = f"data/images/{cat}/{nom_img}.jpg"
     if os.path.exists(test_doublon):
@@ -166,5 +166,5 @@ def ETL(url_site):
             save_image(url_page)
 
 # Appel de la fonction pour le site concerné
-url_site = "https://books.toscrape.com/index.html"
+url_site = "https://books.toscrape.com"
 ETL(url_site)
