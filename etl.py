@@ -1,7 +1,3 @@
-## On importe les packages dont on aura besoin pour le projet 
-# Request pour extraire la page web, BS pour parser les données, et CSV pour les enregistrer)
-# On utilisera également la fonction urljoin pour modifier les urls relative et re pour utiliser les regex
-
 import requests
 from bs4 import BeautifulSoup
 import csv
@@ -9,18 +5,53 @@ from urllib.parse import urljoin
 import re
 import os
 
+# Fonction pour extraire tous les liens des catégorie du site
+def extract_site(url_site):
+    liste_url =[]
+    reponse = requests.get(url_site)
+    page = reponse.content
+    soup = BeautifulSoup(page, "html.parser")
+    index = soup.select(".nav-list a")
+    for elements in index[1:]: # exclusion du premier lien qui renvoie à l'index
+        url_relative = elements["href"]
+        url_category = urljoin(url_site, url_relative)
+        liste_url.append(url_category)
+    return liste_url
 
-## On crée une fonction pour scraper la page d'un produit avec request et les parser avec BS
+# Fonction pour extraire tous les liens des produits d'une page de catégorie
+def extract_category(url_category):
+    liste_url = []
+    # Boucle afin de pouvoir extraire les liens de plusieurs pages s'il y en a
+    while True:
+        reponse = requests.get(url_category)
+        page = reponse.content
+        soup = BeautifulSoup(page, "html.parser")
+        # Ajout dans la liste tous les liens de la page
+        h3 = soup.find_all("h3")
+        for element in h3:
+            lien_brut = element.find_all("a")
+            for element in lien_brut:
+                url_relative = element["href"]
+                page_url = urljoin(url_category, url_relative)
+                liste_url.append(page_url)
+        # Vérification de l'existence d'un lien vers une page suivante
+        pg_next_brut = soup.select("li.next")
+        if pg_next_brut: 
+            # Si true, récupératon des liens jusqu'à qu'il n'y ai plus de pages
+            pg_next = pg_next_brut[-1].find("a")["href"] 
+            url_category = urljoin(url_category, pg_next)            
+        else:
+            break
+    return liste_url
+
+# Fonction pour extraire les données d'un produits et les enregistrer dans un dictionnaire
 def extract_page(url_page):
-    # D'abord le scrap
     reponse = requests.get(url_page)
     page = reponse.content
-    # Puis le parse
     soup = BeautifulSoup(page, "html.parser")
-    ## On extrait les infos qui nous intéresse, puis on les organise en dico pour pouvoir plus facilement les traiter ensuite
     # Le titre
     titre = soup.find("h1").string
-    # Le bloc description, où on récupère que le nombre pour le stock
+    # Le bloc description, uniquement le nombre pour le stock
     info_description = soup.find_all("td")
     upc = info_description[0].get_text()
     prixtaxe = info_description[2].get_text()
@@ -38,7 +69,7 @@ def extract_page(url_page):
     balise_img = soup.find_all("img")[0]
     url_img_relative = balise_img["src"]
     url_img = urljoin(url_page, url_img_relative)
-    ## On enregistre les info dans un dico en prévision du chargement et en respectant les exigences
+    # Enregistrement des infos dans le dico en respectant le cahier des charges
     info = {
         "product_page_url": url_page,
         "universal_ product_code (upc)": upc,
@@ -53,68 +84,16 @@ def extract_page(url_page):
     }
     return info
  
-
-## On ajoute la fonction pour extraire tous les liens des produits d'une page de catégorie
-def extract_category(url_category):
-    # On crée une liste pour incorporer tous les liens
-    liste_url = []
-    # On va créer une boucle afin de pouvoir extraire les liens de plusieurs pages s'il y en a
-    while True:
-        reponse = requests.get(url_category)
-        page = reponse.content
-        soup = BeautifulSoup(page, "html.parser")
-        # On ajoute dans la liste tous les liens de la page grâce à une boucle
-        h3 = soup.find_all("h3")
-        for element in h3:
-            lien_brut = element.find_all("a")
-            for element in lien_brut:
-                url_relative = element["href"]
-                page_url = urljoin(url_category, url_relative)
-                liste_url.append(page_url)
-        # On vérifie s'il existe un lien vers une page suivante
-        pg_next_brut = soup.select("li.next")
-        if pg_next_brut: 
-            # Si c'est le cas on récupère le lien de la page suivant dont on récupérera les données via la boucle...
-            pg_next = pg_next_brut[-1].find("a")["href"] 
-            url_category = urljoin(url_category, pg_next)            
-        # ... jusqu'à qu'il n'y ai plus de page
-        else:
-            break
-    return liste_url
-
-
-## On ajoute la fonction permettant de télécharger les images
-def save_image(url_page):
-    # On récupère l'url de l'image pour extraire les données en bytes
-    url_img = extract_page(url_page)["image_url"]
-    reponse_url = requests.get(url_img)
-    img_data = reponse_url.content
-    # On récupère le nom de l'image
-    reponse_nom = requests.get(url_page).content
-    soup = BeautifulSoup(reponse_nom, "html.parser")
-    balise_img = soup.find_all("img")[0]
-    nom_img_brut = balise_img["alt"]
-    # On modifie le nom de l'image pour être bien référencé et pouvoir fonctionner avec les caractères spéciaux
-    nom_img = re.sub(r"(\W)", "", nom_img_brut)
-    # On vérifie que le nom d'image n'existe pas déjà pour éviter l'écrasement du fait d'éventuel doublon
-    test_doublon = f"data/images/{nom_img}.jpg"
-    if os.path.exists(test_doublon):
-        # Si c'est le cas on enregistre l'image sous un nom légèrement modifié
-        with open(f"data/images/{nom_img}(2).jpg", "wb") as fichier:
-            fichier.write(img_data)
-    else:
-        # Si ok on enregistre les données dans un format .jpg écrit en bytes, avec le nom de base
-        with open(f"data/images/{nom_img}.jpg", "wb") as fichier:
-            fichier.write(img_data)
-         
-
-## On ajoute une fonction permettant d'initialiser un fichier CSV par catégorie
+# Fonction pour initialiser un fichier CSV par catégorie
 def init_save(url_category):
+    # Récupération du nom de la catégorie pour le mettre comme nom du fichier CSV
     reponse = requests.get(url_category).content
     soup = BeautifulSoup(reponse, "html.parser")
     nom_category = soup.find("h1").string
-    with open(f"data/cst/{nom_category}.csv", "w", newline="", encoding='UTF-8') as fichierCSV:
-        # On remet les catégorie du dico qu'on réutilisera grâce à dictwriter
+    # Création du dossier où seront stocké les fichiers CSV
+    os.makedirs("data/csv/", exist_ok=True)
+    # Création du fichier avec les champs du dictionnaire des infos
+    with open(f"data/csv/{nom_category}.csv", "w", newline="", encoding='UTF-8') as fichierCSV:
         fieldnames = [
                     "product_page_url", 
                     "universal_ product_code (upc)", 
@@ -129,12 +108,11 @@ def init_save(url_category):
                     ]
         writer = csv.DictWriter(fichierCSV, fieldnames=fieldnames)
         writer.writeheader()
-  
-              
-## On ajoute la fonction permettant d'ajouter chaque nouveau dico dans le fichier CSV
+                
+# Fonction pour ajouter chaque données produits dans le fichier CSV correspondant
 def save(info):
     nom_csv = info["category"]
-    with open(f"data/cst/{nom_csv}.csv", "a", newline="", encoding='UTF-8') as fichierCSV:
+    with open(f"data/csv/{nom_csv}.csv", "a", newline="", encoding='UTF-8') as fichierCSV:
         fieldnames = [
                     "product_page_url", 
                     "universal_ product_code (upc)", 
@@ -150,22 +128,35 @@ def save(info):
         writer = csv.DictWriter(fichierCSV, fieldnames=fieldnames)
         writer.writerow(info)
 
-
-## On ajoute la fonction permettant d'extraire tous les liens des catégorie du site
-def extract_site(url_site):
-    liste_url =[]
-    reponse = requests.get(url_site)
-    page = reponse.content
-    soup = BeautifulSoup(page, "html.parser")
-    index = soup.select(".nav-list a")
-    for elements in index[1:]:
-        url_relative = elements["href"]
-        url_category = urljoin(url_site, url_relative)
-        liste_url.append(url_category)
-    return liste_url
-
-
-# La fonction ETL permettant de lancer l'ensemble des scripts
+# Fonction pour télécharger les images
+def save_image(url_page):
+    # Récupération des données de l'image
+    url_img = extract_page(url_page)["image_url"]
+    reponse_url = requests.get(url_img)
+    img_data = reponse_url.content
+    # Récupération du nom de l'image
+    reponse_nom = requests.get(url_page).content
+    soup = BeautifulSoup(reponse_nom, "html.parser")
+    balise_img = soup.find_all("img")[0]
+    nom_img_brut = balise_img["alt"]
+    # Modification du nom de l'image pour leur référencement
+    nom_img = re.sub(r"(\W)", "", nom_img_brut)
+    # Création du dossier de l'image, où chacune seront stockées suivant leur catégorie
+    cat = extract_page(url_page)["category"]
+    os.makedirs(f"data/images/{cat}", exist_ok=True)
+    # Vérification de l'existance de l'image, pour éviter l'écrasement du fait d'éventuel doublon
+    # /!\ si le script est lancé une seconde fois sans suppression du dossier /images
+    test_doublon = f"data/images/{cat}/{nom_img}.jpg"
+    if os.path.exists(test_doublon):
+        # Si c'est le cas enregistrement de l'image sous un nom légèrement modifié 
+        with open(f"data/images/{cat}/{nom_img}(2).jpg", "wb") as fichier:
+            fichier.write(img_data)
+    else:
+        # Sinon enregistrement de l'image sous son nom
+        with open(f"data/images/{cat}/{nom_img}.jpg", "wb") as fichier:
+            fichier.write(img_data)
+   
+# Fonction pour lancer l'ensemble des scripts
 def ETL(url_site):
     for url_category in extract_site(url_site):
         init_save(url_category)
@@ -174,6 +165,6 @@ def ETL(url_site):
             save(info)
             save_image(url_page)
 
-
+# Appel de la fonction pour le site concerné
 url_site = "https://books.toscrape.com/index.html"
 ETL(url_site)
