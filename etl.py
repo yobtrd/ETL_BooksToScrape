@@ -106,13 +106,13 @@ def save_image(url_page):
         # Si ok on enregistre les données dans un format .jpg écrit en bytes, avec le nom de base
         with open(f"data/images/{nom_img}.jpg", "wb") as fichier:
             fichier.write(img_data)
-
-
-            
-
+         
 
 ## On ajoute une fonction permettant d'initialiser un fichier CSV par catégorie
 def init_save(url_category):
+    reponse = requests.get(url_category).content
+    soup = BeautifulSoup(reponse, "html.parser")
+    nom_category = soup.find("h1").string
     with open(f"data/cst/{nom_category}.csv", "w", newline="") as fichierCSV:
         # On remet les catégorie du dico qu'on réutilisera grâce à dictwriter
         fieldnames = [
@@ -150,11 +150,27 @@ def save(info):
         writer = csv.DictWriter(fichierCSV, fieldnames=fieldnames)
         writer.writerow(info)
 
-url_category = "https://books.toscrape.com/catalogue/category/books/fantasy_19/index.html"
-nom_category = "fantasy"
 
-init_save(url_category)
-for url_page in extract_category(url_category):
-    info = extract(url_page)
-    save(info)
-    save_image(url_page)
+## On ajouter la fonction permettant d'extraire tous les liens des catégorie du site
+def extract_site(url_site):
+    liste_url =[]
+    reponse = requests.get(url_site)
+    page = reponse.content
+    soup = BeautifulSoup(page, "html.parser")
+    index = soup.select(".nav-list a")
+    for elements in index[1:]:
+        url_relative = elements["href"]
+        url_category = urljoin(url_site, url_relative)
+        liste_url.append(url_category)
+    return liste_url
+
+
+
+url_site = "https://books.toscrape.com/catalogue/category/books/fantasy_19/index.html"
+for url_category in extract_site(url_site):
+    init_save(url_category)
+    for url_page in extract_category(url_category):
+        info = extract(url_page)
+        save(info)
+        save_image(url_page)
+
