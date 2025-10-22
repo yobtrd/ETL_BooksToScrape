@@ -8,7 +8,7 @@ Version bêta d'une pipeline ETL visant à surveiller les prix de sites concurre
 - Cloner le repository.
 - Déplacez-vous dans le dossier du repository (ETL_BooksToScrape) via un terminal, l'ensemble des prochaines étapes se feront via le terminal et dans ce répertoire de travail.
 - Créer votre environnement virtuel avec la commande `python -m venv env`.
-- Activer l'environnement virtuel avec la commande `env/scripts/activate` sous windows, `source env/bin/activate` sous mac (dans le cas ou vous aurez des soucis avec windows, regardez pour changer les stratégies d’exécution de PowerShell).
+- Activer l'environnement virtuel avec la commande `env/scripts/activate` sous windows, `source env/bin/activate` sous mac (dans le cas où vous aurez des soucis avec windows, regardez pour changer les stratégies d’exécution de PowerShell).
 - Installer les packages et modules nécessaire avec `pip install -r requirements.txt`.
 
 ## Usage
