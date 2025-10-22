@@ -11,7 +11,7 @@ import os
 
 
 ## On crée une fonction pour scraper la page d'un produit avec request et les parser avec BS
-def extract(url_page):
+def extract_page(url_page):
     # D'abord le scrap
     reponse = requests.get(url_page)
     page = reponse.content
@@ -86,7 +86,7 @@ def extract_category(url_category):
 ## On ajoute la fonction permettant de télécharger les images
 def save_image(url_page):
     # On récupère l'url de l'image pour extraire les données en bytes
-    url_img = extract(url_page)["image_url"]
+    url_img = extract_page(url_page)["image_url"]
     reponse_url = requests.get(url_img)
     img_data = reponse_url.content
     # On récupère le nom de l'image
@@ -113,7 +113,7 @@ def init_save(url_category):
     reponse = requests.get(url_category).content
     soup = BeautifulSoup(reponse, "html.parser")
     nom_category = soup.find("h1").string
-    with open(f"data/cst/{nom_category}.csv", "w", newline="") as fichierCSV:
+    with open(f"data/cst/{nom_category}.csv", "w", newline="", encoding='UTF-8') as fichierCSV:
         # On remet les catégorie du dico qu'on réutilisera grâce à dictwriter
         fieldnames = [
                     "product_page_url", 
@@ -134,7 +134,7 @@ def init_save(url_category):
 ## On ajoute la fonction permettant d'ajouter chaque nouveau dico dans le fichier CSV
 def save(info):
     nom_csv = info["category"]
-    with open(f"data/cst/{nom_csv}.csv", "a", newline="") as fichierCSV:
+    with open(f"data/cst/{nom_csv}.csv", "a", newline="", encoding='UTF-8') as fichierCSV:
         fieldnames = [
                     "product_page_url", 
                     "universal_ product_code (upc)", 
@@ -151,7 +151,7 @@ def save(info):
         writer.writerow(info)
 
 
-## On ajouter la fonction permettant d'extraire tous les liens des catégorie du site
+## On ajoute la fonction permettant d'extraire tous les liens des catégorie du site
 def extract_site(url_site):
     liste_url =[]
     reponse = requests.get(url_site)
@@ -165,12 +165,15 @@ def extract_site(url_site):
     return liste_url
 
 
+# La fonction ETL permettant de lancer l'ensemble des scripts
+def ETL(url_site):
+    for url_category in extract_site(url_site):
+        init_save(url_category)
+        for url_page in extract_category(url_category):
+            info = extract_page(url_page)
+            save(info)
+            save_image(url_page)
 
-url_site = "https://books.toscrape.com/catalogue/category/books/fantasy_19/index.html"
-for url_category in extract_site(url_site):
-    init_save(url_category)
-    for url_page in extract_category(url_category):
-        info = extract(url_page)
-        save(info)
-        save_image(url_page)
 
+url_site = "https://books.toscrape.com/index.html"
+ETL(url_site)
