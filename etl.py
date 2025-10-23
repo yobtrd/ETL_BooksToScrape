@@ -134,27 +134,23 @@ def save_image(url_page):
     url_img = extract_page(url_page)["image_url"]
     reponse_url = requests.get(url_img)
     img_data = reponse_url.content
-    # Récupération du nom de l'image
+    # Récupération et modification du nom de l'image pour leur référencement
     reponse_nom = requests.get(url_page).content
     soup = BeautifulSoup(reponse_nom, "html.parser")
     balise_img = soup.find_all("img")[0]
     nom_img_brut = balise_img["alt"]
-    # Modification du nom de l'image pour leur référencement
-    nom_img = re.sub(r"(\W)", "", nom_img_brut)
+    nom_img_brut = nom_img_brut.split(":")[0]
+    nom_img_brut = re.sub(r"(\W)", "", nom_img_brut)
+    # Récupération d'une partie de l'id de l'image pour éviter les doublons en cas de noms similaires
+    id_img = url_img.split("/")[7]
+    id_img = id_img[:7]
+    nom_img =  f"{nom_img_brut}.{id_img}"
     # Création du dossier de l'image, où chacune seront stockées suivant leur catégorie
     cat = extract_page(url_page)["category"]
     os.makedirs(f"data/images/{cat}", exist_ok=True)
-    # Vérification de l'existence de l'image, pour éviter l'écrasement du fait d'éventuel doublon
-    # /!\ si le script est lancé une seconde fois sans suppression du dossier /images
-    test_doublon = f"data/images/{cat}/{nom_img}.jpg"
-    if os.path.exists(test_doublon):
-        # Si c'est le cas enregistrement de l'image sous un nom légèrement modifié 
-        with open(f"data/images/{cat}/{nom_img}(2).jpg", "wb") as fichier:
-            fichier.write(img_data)
-    else:
-        # Sinon enregistrement de l'image sous son nom
-        with open(f"data/images/{cat}/{nom_img}.jpg", "wb") as fichier:
-            fichier.write(img_data)
+    # Sauvegarde de l'image
+    with open(f"data/images/{cat}/{nom_img}.jpg", "wb") as fichier:
+        fichier.write(img_data)
    
 # Fonction pour lancer l'ensemble des scripts
 def ETL(url_site):
