@@ -1,7 +1,7 @@
 # ETL Books to Scrape
 
 ## Description
-Version bêta d'une pipeline ETL visant à surveiller les prix de sites concurrents concernant des livres d'occasions. Ici limitée à un site (books.toscrape.com) et via une extraction à la demande et non en temps réel. 
+Version bêta d'un pipeline ETL visant à surveiller les prix de sites concurrents concernant des livres d'occasions. Ici limitée à un site (books.toscrape.com) et via une extraction à la demande et non en temps réel. 
 
 ## Installation
 - Python doit être préalablement installé.
@@ -14,4 +14,3 @@ Version bêta d'une pipeline ETL visant à surveiller les prix de sites concurre
 ## Usage
 - Toujours via le terminal, lancer le script via `python etl.py`.
 - Les données du site se téléchargeront dans un nouveau dossier "data".
-- /!\ En l'état le script vérifie si le nom des images existent déjà, dans le cas où celui-ci serait lancé une deuxième fois sans suppression du dossier data/images, il créera donc des doublons
